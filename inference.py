@@ -7,7 +7,7 @@ from glob import glob
 import torch, face_detection
 from models import Wav2Lip
 import platform
-from elevenlabs_tts import synthesize_speech
+from tts import PROVIDERS, api_key_env, synthesize_speech
 
 parser = argparse.ArgumentParser(description='Inference code to lip-sync videos in the wild using Wav2Lip models')
 
@@ -19,13 +19,15 @@ parser.add_argument('--face', type=str,
 parser.add_argument('--audio', type=str, 
 					help='Filepath of video/audio file to use as raw audio source')
 parser.add_argument('--text', type=str,
-					help='Text to synthesize with ElevenLabs instead of using --audio')
-parser.add_argument('--elevenlabs_voice_id', type=str,
-					help='ElevenLabs voice ID. Required when using --text')
-parser.add_argument('--elevenlabs_model_id', type=str,
-					help='ElevenLabs text-to-speech model ID', default='eleven_multilingual_v2')
-parser.add_argument('--elevenlabs_output_format', type=str,
-					help='ElevenLabs audio output format', default='mp3_44100_128')
+					help='Text to synthesize with a TTS provider instead of using --audio')
+parser.add_argument('--tts_provider', choices=PROVIDERS, default='elevenlabs',
+					help='Text-to-speech provider (default: elevenlabs)')
+parser.add_argument('--tts_voice', type=str,
+					help='Provider-native voice name or ID')
+parser.add_argument('--tts_model', type=str,
+					help='Provider-native text-to-speech model name')
+parser.add_argument('--tts_output_format', type=str,
+					help='Provider-native audio output format')
 parser.add_argument('--outfile', type=str, help='Video path to save result. See default for an e.g.', 
 								default='results/result_voice.mp4')
 
@@ -64,10 +66,11 @@ args.img_size = 96
 
 if bool(args.audio) == bool(args.text):
 	parser.error('provide exactly one of --audio or --text')
-if args.text and not args.elevenlabs_voice_id:
-	parser.error('--elevenlabs_voice_id is required when using --text')
-if args.text and not os.environ.get('ELEVENLABS_API_KEY'):
-	parser.error('set ELEVENLABS_API_KEY when using --text')
+if args.text and args.tts_provider == 'elevenlabs' and not args.tts_voice:
+	parser.error('--tts_voice is required for the ElevenLabs provider')
+if args.text and not os.environ.get(api_key_env(args.tts_provider)):
+	parser.error('set {} when using --text with {}'.format(
+		api_key_env(args.tts_provider), args.tts_provider))
 
 if os.path.isfile(args.face) and args.face.split('.')[1] in ['jpg', 'png', 'jpeg']:
 	args.static = True
@@ -235,16 +238,17 @@ def main():
 		raise ValueError('--face did not contain any readable video frames')
 
 	if args.text:
-		print('Generating speech with ElevenLabs...')
+		print('Generating speech with {}...'.format(args.tts_provider))
 		args.audio = synthesize_speech(
+			args.tts_provider,
 			args.text,
-			args.elevenlabs_voice_id,
-			os.environ['ELEVENLABS_API_KEY'],
-			'temp/elevenlabs.mp3',
-			model_id=args.elevenlabs_model_id,
-			output_format=args.elevenlabs_output_format,
+			'temp/tts_audio',
+			os.environ[api_key_env(args.tts_provider)],
+			voice=args.tts_voice,
+			model=args.tts_model,
+			output_format=args.tts_output_format,
 		)
-		print('ElevenLabs speech saved to {}'.format(args.audio))
+		print('Synthesized speech saved to {}'.format(args.audio))
 
 	if not args.audio.endswith('.wav'):
 		print('Extracting raw audio...')

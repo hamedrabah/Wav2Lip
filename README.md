@@ -250,13 +250,24 @@ python inference.py --checkpoint_path <ckpt> --face <video.mp4> --audio <an-audi
 ```
 The result is saved (by default) in `results/result_voice.mp4`. You can specify it as an argument,  similar to several other available options. The audio source can be any file supported by `FFMPEG` containing audio data: `*.wav`, `*.mp3` or even a video file, from which the code will automatically extract the audio.
 
-You can also generate the speech directly from text with [ElevenLabs](https://elevenlabs.io/docs/api-reference/text-to-speech/convert). Keep the API key in an environment variable and provide a voice ID:
+You can also generate speech directly from text using ElevenLabs, OpenAI, or Deepgram. Keep API keys in environment variables rather than command-line arguments:
 ```bash
+# ElevenLabs (a voice ID is required)
 export ELEVENLABS_API_KEY=<your-api-key>
 python inference.py --checkpoint_path <ckpt> --face <video.mp4> \
-  --text "Text to speak" --elevenlabs_voice_id <voice-id>
+  --text "Text to speak" --tts_provider elevenlabs --tts_voice <voice-id>
+
+# OpenAI
+export OPENAI_API_KEY=<your-api-key>
+python inference.py --checkpoint_path <ckpt> --face <video.mp4> \
+  --text "Text to speak" --tts_provider openai
+
+# Deepgram
+export DEEPGRAM_API_KEY=<your-api-key>
+python inference.py --checkpoint_path <ckpt> --face <video.mp4> \
+  --text "Text to speak" --tts_provider deepgram
 ```
-This uses `eleven_multilingual_v2` and `mp3_44100_128` by default. Override them with `--elevenlabs_model_id` and `--elevenlabs_output_format`. Exactly one of `--audio` or `--text` must be provided.
+Provider defaults are `eleven_multilingual_v2` for ElevenLabs, `gpt-4o-mini-tts` with the `coral` voice for OpenAI, and `aura-2-thalia-en` for Deepgram. Override provider-native values with `--tts_voice`, `--tts_model`, and `--tts_output_format`; for Deepgram, the voice is part of the model name, so either voice or model can select it. Exactly one of `--audio` or `--text` must be provided. Follow the selected provider's disclosure and usage policies when publishing generated speech.
 
 ##### Tips for better results:
 - Experiment with the `--pads` argument to adjust the detected face bounding box. Often leads to improved results. You might need to increase the bottom padding to include the chin region. E.g. `--pads 0 20 0 0`.
