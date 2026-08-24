@@ -249,6 +249,15 @@ You can lip-sync any video to any audio:
 python inference.py --checkpoint_path <ckpt> --face <video.mp4> --audio <an-audio-source> 
 ```
 The result is saved (by default) in `results/result_voice.mp4`. You can specify it as an argument,  similar to several other available options. The audio source can be any file supported by `FFMPEG` containing audio data: `*.wav`, `*.mp3` or even a video file, from which the code will automatically extract the audio.
+
+You can also generate the speech directly from text with [ElevenLabs](https://elevenlabs.io/docs/api-reference/text-to-speech/convert). Keep the API key in an environment variable and provide a voice ID:
+```bash
+export ELEVENLABS_API_KEY=<your-api-key>
+python inference.py --checkpoint_path <ckpt> --face <video.mp4> \
+  --text "Text to speak" --elevenlabs_voice_id <voice-id>
+```
+This uses `eleven_multilingual_v2` and `mp3_44100_128` by default. Override them with `--elevenlabs_model_id` and `--elevenlabs_output_format`. Exactly one of `--audio` or `--text` must be provided.
+
 ##### Tips for better results:
 - Experiment with the `--pads` argument to adjust the detected face bounding box. Often leads to improved results. You might need to increase the bottom padding to include the chin region. E.g. `--pads 0 20 0 0`.
 - If you see the mouth position dislocated or some weird artifacts such as two mouths, then it can be because of over-smoothing the face detections. Use the `--nosmooth` argument and give it another try. 

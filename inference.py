@@ -7,6 +7,7 @@ from glob import glob
 import torch, face_detection
 from models import Wav2Lip
 import platform
+from elevenlabs_tts import synthesize_speech
 
 parser = argparse.ArgumentParser(description='Inference code to lip-sync videos in the wild using Wav2Lip models')
 
@@ -16,7 +17,15 @@ parser.add_argument('--checkpoint_path', type=str,
 parser.add_argument('--face', type=str, 
 					help='Filepath of video/image that contains faces to use', required=True)
 parser.add_argument('--audio', type=str, 
-					help='Filepath of video/audio file to use as raw audio source', required=True)
+					help='Filepath of video/audio file to use as raw audio source')
+parser.add_argument('--text', type=str,
+					help='Text to synthesize with ElevenLabs instead of using --audio')
+parser.add_argument('--elevenlabs_voice_id', type=str,
+					help='ElevenLabs voice ID. Required when using --text')
+parser.add_argument('--elevenlabs_model_id', type=str,
+					help='ElevenLabs text-to-speech model ID', default='eleven_multilingual_v2')
+parser.add_argument('--elevenlabs_output_format', type=str,
+					help='ElevenLabs audio output format', default='mp3_44100_128')
 parser.add_argument('--outfile', type=str, help='Video path to save result. See default for an e.g.', 
 								default='results/result_voice.mp4')
 
@@ -52,6 +61,13 @@ parser.add_argument('--nosmooth', default=False, action='store_true',
 
 args = parser.parse_args()
 args.img_size = 96
+
+if bool(args.audio) == bool(args.text):
+	parser.error('provide exactly one of --audio or --text')
+if args.text and not args.elevenlabs_voice_id:
+	parser.error('--elevenlabs_voice_id is required when using --text')
+if args.text and not os.environ.get('ELEVENLABS_API_KEY'):
+	parser.error('set ELEVENLABS_API_KEY when using --text')
 
 if os.path.isfile(args.face) and args.face.split('.')[1] in ['jpg', 'png', 'jpeg']:
 	args.static = True
@@ -181,6 +197,8 @@ def load_model(path):
 def main():
 	if not os.path.isfile(args.face):
 		raise ValueError('--face argument must be a valid path to video/image file')
+	if not os.path.isfile(args.checkpoint_path):
+		raise ValueError('--checkpoint_path must be a valid path to a checkpoint file')
 
 	elif args.face.split('.')[1] in ['jpg', 'png', 'jpeg']:
 		full_frames = [cv2.imread(args.face)]
@@ -213,6 +231,20 @@ def main():
 			full_frames.append(frame)
 
 	print ("Number of frames available for inference: "+str(len(full_frames)))
+	if not full_frames:
+		raise ValueError('--face did not contain any readable video frames')
+
+	if args.text:
+		print('Generating speech with ElevenLabs...')
+		args.audio = synthesize_speech(
+			args.text,
+			args.elevenlabs_voice_id,
+			os.environ['ELEVENLABS_API_KEY'],
+			'temp/elevenlabs.mp3',
+			model_id=args.elevenlabs_model_id,
+			output_format=args.elevenlabs_output_format,
+		)
+		print('ElevenLabs speech saved to {}'.format(args.audio))
 
 	if not args.audio.endswith('.wav'):
 		print('Extracting raw audio...')
